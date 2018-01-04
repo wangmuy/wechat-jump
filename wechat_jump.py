@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import subprocess
 import math
 import time
@@ -63,10 +64,9 @@ def imread(filename):
     return img
     
 def imtransform(img):
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    canny = cv.Canny(gray, 10, 30)
-    del img
-    del gray
+    #gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    canny = cv.Canny(img, 10, 30)
+    #del gray
     return canny
 
 class Pattern:
@@ -88,11 +88,16 @@ class Pattern:
 droid = Pattern("wechat_jump_body.png", isTransform=False)
 ui_ret = Pattern("wechat_jump_return.png", isTransform=False)
 ui_retry = Pattern("wechat_jump_retry.png", isTransform=False)
+last_screencap = None
+last_screencap_orig = None
+failed_count = 0
 
 def jump_alg_top_edge(screencap):
     """ return: jumped?
     """
     global droid
+    global last_screencap
+    global last_screencap_orig
     droid_h, droid_w = droid.h, droid.w
     
     # find droid
@@ -115,7 +120,13 @@ def jump_alg_top_edge(screencap):
         border_top_y += 1
     border_top_x = np.argmax(max_i)
     
-    offset = 90
+    offset = 50
+    if abs(border_top_x - droid_loc[0]) < 10:
+        # 太靠近了, 落点应该偏移一点, 左右随意
+        print("## border_top_x too close to droid, offset...", border_top_x, droid_loc[0])
+        cv.imwrite("wechat-jump-sc-crop.png", screencap)
+        #return False
+        border_top_x += 140
     found_ptrn_loc = (border_top_x, border_top_y+offset)
     ptrn_topleft = (found_ptrn_loc[0]-25, found_ptrn_loc[1]-25)
     found_ptrn_w = 50
@@ -125,11 +136,13 @@ def jump_alg_top_edge(screencap):
     cv.rectangle(screencap_orig, tuple(ptrn_topleft), (ptrn_topleft[0]+found_ptrn_w, ptrn_topleft[1]+found_ptrn_h), (0,0,255), 20)
     cv.imwrite("wechat-jump-ptrn_rec.png", screencap_orig)
     cv.imwrite("wechat-jump-sc-crop.png", screencap)
+    last_screencap = screencap
+    last_screencap_orig = screencap_orig
     
     dist = math.sqrt(
         (found_ptrn_loc[0]-droid_loc[0])**2 + (found_ptrn_loc[1]-droid_loc[1])**2)
 
-    time = int(dist*1.35)
+    time = int(dist*1.34)
     dir = "no_care"
     print("found_ptrn_rectangle=", ptrn_topleft, (ptrn_topleft[0]+found_ptrn_w, ptrn_topleft[1]+found_ptrn_h),
         "found_ptrn_loc=", found_ptrn_loc, ", dist=", dist, "dir=", dir, ", time=", time)
@@ -233,6 +246,9 @@ def jump():
     global droid
     global ui_ret
     global ui_retry
+    global last_screencap
+    global last_screencap_orig
+    global failed_count
     droid_h, droid_w = droid.h, droid.w
 
     # screencap
@@ -258,6 +274,13 @@ def jump():
     if retry_confidence > 0.8:
         print(">>> RETRY press...")
         press(int(retry_topleft[0]+retry_w/2.0), int(retry_topleft[1]+retry_h/2.0))
+        if last_screencap is not None:
+            failed_count += 1
+            count_fmt = "{:02d}".format(failed_count)
+            cv.imwrite("wechat-jump-failed-"+count_fmt+"-sc.png", last_screencap)
+            cv.imwrite("wechat-jump-failed-"+count_fmt+"-sc-ptrn_rec.png", last_screencap_orig)
+            last_screencap = None
+            last_screencap_orig = None
         return True
 
     return jump_alg_top_edge(screencap)
