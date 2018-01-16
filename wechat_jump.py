@@ -20,9 +20,11 @@ def press(x, y):
     print("press: ", x, y)
     return adb_shell("input touchscreen tap "+str(x)+" "+str(y))
 
-def long_press(millis):
-    print "long_press", millis
-    return adb_shell("input touchscreen swipe 540 960 540 960 "+str(millis))
+def long_press(millis, p1=(540,960), p2=(540,960)):
+    print("long_press", millis, "p1=", p1, "p2=", p2)
+    p1_str = str(p1[0]) + " " + str(p1[1])
+    p2_str = str(p2[0]) + " " + str(p2[1])
+    return adb_shell("input touchscreen swipe "+p1_str+" "+p2_str+" "+str(millis))
 
 def get_screencap():
     ret = False
@@ -147,7 +149,7 @@ def jump_alg_top_edge(screencap):
     print("found_ptrn_rectangle=", ptrn_topleft, (ptrn_topleft[0]+found_ptrn_w, ptrn_topleft[1]+found_ptrn_h),
         "found_ptrn_loc=", found_ptrn_loc, ", dist=", dist, "dir=", dir, ", time=", time)
     
-    long_press(time)
+    long_press(time, droid_loc, found_ptrn_loc)
     return True
 
 def jump_alg_pattern_match(screencap):
